@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps Message Board</title>
+
+```
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+        min-height: 100vh;
+        background: #EAE0CF;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 30px;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 850px;
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 20px 50px rgba(17, 24, 68, 0.15);
+    }
+
+    h1 {
+        text-align: center;
+        color: #111844;
+        font-size: 2.6rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #7288AE;
+        margin-bottom: 35px;
+        font-size: 1rem;
+    }
+
+    .messages {
+        background: #f9f9f9;
+        border: 2px solid #EAE0CF;
+        border-radius: 18px;
+        min-height: 250px;
+        max-height: 350px;
+        overflow-y: auto;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+
+    .messages p {
+        background: #EAE0CF;
+        color: #111844;
+        border-left: 5px solid #4B5694;
+        padding: 14px 18px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        font-weight: 500;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: #7288AE;
+        padding: 80px 10px;
+        font-size: 1rem;
+    }
+
+    form {
+        display: flex;
+        gap: 12px;
+    }
+
+    input[type="text"] {
+        flex: 1;
+        padding: 16px;
+        border: 2px solid #7288AE;
+        border-radius: 12px;
+        font-size: 1rem;
+        color: #111844;
+    }
+
+    input[type="text"]:focus {
+        outline: none;
+        border-color: #4B5694;
+        box-shadow: 0 0 0 4px rgba(75, 86, 148, 0.15);
+    }
+
+    button {
+        background: #111844;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 16px 28px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.25s ease;
+    }
+
+    button:hover {
+        background: #4B5694;
+        transform: translateY(-2px);
+    }
+
+    .footer {
+        margin-top: 20px;
+        text-align: center;
+        color: #7288AE;
+        font-size: 0.9rem;
+    }
+
+    .messages::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .messages::-webkit-scrollbar-thumb {
+        background: #7288AE;
+        border-radius: 20px;
+    }
+
+    @media (max-width: 768px) {
+
+        .container {
+            padding: 25px;
+        }
+
+        h1 {
+            font-size: 1.9rem;
+        }
+
+        form {
+            flex-direction: column;
+        }
+
+        button {
+            width: 100%;
+        }
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+```
+<div class="container">
+
+    <h1>🟢 GREEN VERSION - DevOps Message Board</h1>
+
+    <p class="subtitle">
+        Flask • Docker • MySQL • CI/CD Learning Journey
+    </p>
+
+    <div class="messages">
+
+        {% if messages %}
+
+            {% for message in messages %}
+                <p>{{ message[0] }}</p>
+            {% endfor %}
+
+        {% else %}
+
+            <div class="empty-state">
+                🚀 No messages yet. Add your first message.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <form action="/add" method="POST">
+
+        <input
+            type="text"
+            name="message"
+            placeholder="Write a message..."
+            required
+        >
+
+        <button type="submit">
+            Add Message
+        </button>
+
+    </form>
+
+    <div class="footer">
+        Built while learning real-world DevOps engineering
+    </div>
+
+</div>
+```
+
+</body>
+</html>
+

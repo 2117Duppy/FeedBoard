@@ -30,7 +30,10 @@ def get_users():
 @app.route("/")
 def home():
     users = get_users()
-    return render_template("index.html", messages=users)
+    return render_template(
+        os.getenv("APP_TEMPLATE", "index.html"),
+        messages=users
+    )
 
 
 @app.route("/add", methods=["POST"])
@@ -52,6 +55,22 @@ def add_message():
 
     return redirect("/")
 
+@app.route("/delete/<int:user_id>", methods=["POST"])
+def delete_message(user_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "DELETE FROM Users WHERE id = %s",
+        (user_id,)
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return redirect("/")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

@@ -52,6 +52,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+      APP_TEMPLATE: index-green.html
    
     depends_on:
       mysql:
