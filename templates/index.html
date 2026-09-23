@@ -1,210 +1,991 @@
 <!DOCTYPE html>
-
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevOps Message Board</title>
 
-```
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    <style>
 
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: 'Poppins', sans-serif;
-    }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 
-    body {
-        min-height: 100vh;
-        background: #EAE0CF;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 30px;
-    }
+        /* ── Variables ── */
 
-    .container {
-        width: 100%;
-        max-width: 850px;
-        background: #ffffff;
-        border-radius: 24px;
-        padding: 40px;
-        box-shadow: 0 20px 50px rgba(17, 24, 68, 0.15);
-    }
-
-    h1 {
-        text-align: center;
-        color: #111844;
-        font-size: 2.6rem;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-
-    .subtitle {
-        text-align: center;
-        color: #7288AE;
-        margin-bottom: 35px;
-        font-size: 1rem;
-    }
-
-    .messages {
-        background: #f9f9f9;
-        border: 2px solid #EAE0CF;
-        border-radius: 18px;
-        min-height: 250px;
-        max-height: 350px;
-        overflow-y: auto;
-        padding: 20px;
-        margin-bottom: 25px;
-    }
-
-    .messages p {
-        background: #EAE0CF;
-        color: #111844;
-        border-left: 5px solid #4B5694;
-        padding: 14px 18px;
-        border-radius: 10px;
-        margin-bottom: 12px;
-        font-weight: 500;
-    }
-
-    .empty-state {
-        text-align: center;
-        color: #7288AE;
-        padding: 80px 10px;
-        font-size: 1rem;
-    }
-
-    form {
-        display: flex;
-        gap: 12px;
-    }
-
-    input[type="text"] {
-        flex: 1;
-        padding: 16px;
-        border: 2px solid #7288AE;
-        border-radius: 12px;
-        font-size: 1rem;
-        color: #111844;
-    }
-
-    input[type="text"]:focus {
-        outline: none;
-        border-color: #4B5694;
-        box-shadow: 0 0 0 4px rgba(75, 86, 148, 0.15);
-    }
-
-    button {
-        background: #111844;
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 16px 28px;
-        cursor: pointer;
-        font-size: 1rem;
-        font-weight: 600;
-        transition: all 0.25s ease;
-    }
-
-    button:hover {
-        background: #4B5694;
-        transform: translateY(-2px);
-    }
-
-    .footer {
-        margin-top: 20px;
-        text-align: center;
-        color: #7288AE;
-        font-size: 0.9rem;
-    }
-
-    .messages::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .messages::-webkit-scrollbar-thumb {
-        background: #7288AE;
-        border-radius: 20px;
-    }
-
-    @media (max-width: 768px) {
-
-        .container {
-            padding: 25px;
+        :root {
+            --navy:   #111844;
+            --indigo: #4B5694;
+            --slate:  #7288AE;
+            --cream:  #EAE0CF;
+            --paper:  #F7F5F0;
+            --white:  #FFFFFF;
+            --line:   rgba(17, 24, 68, 0.14);
         }
 
-        h1 {
-            font-size: 1.9rem;
+        /* ── Reset ── */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        form {
+        body {
+            min-height: 100vh;
+            background: var(--paper);
+            color: var(--navy);
+            font-family: 'Manrope', sans-serif;
+        }
+
+        /* ── Top bar ── */
+
+        .topbar {
+            height: 68px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 5vw;
+            background: var(--paper);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-mark {
+            width: 30px;
+            height: 30px;
+            background: var(--navy);
+            color: var(--cream);
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            font-family: 'DM Mono', monospace;
+            font-size: 13px;
+        }
+
+        .environment {
+            font-family: 'DM Mono', monospace;
+            color: var(--slate);
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Page wrapper ── */
+
+        .page {
+            width: min(1180px, 90vw);
+            margin: 0 auto;
+            padding: 65px 0 45px;
+        }
+
+        /* ── Hero ── */
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.6fr 0.8fr;
+            gap: 70px;
+            align-items: end;
+            padding-bottom: 55px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .hero-kicker {
+            font-family: 'DM Mono', monospace;
+            color: var(--indigo);
+            font-size: 12px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+
+        .hero-words {
+            display: flex;
             flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
         }
 
-        button {
-            width: 100%;
+        .drag-word {
+            font-size: clamp(3rem, 7vw, 6.4rem);
+            line-height: 0.92;
+            letter-spacing: -5px;
+            font-weight: 800;
+            cursor: grab;
+            user-select: none;
+            display: inline-block;
+            width: fit-content;
+            transition: opacity 0.15s;
         }
-    }
-</style>
-```
+
+        .drag-word.accent {
+            color: var(--indigo);
+        }
+
+        .drag-word:active {
+            cursor: grabbing;
+        }
+
+        .drag-word.is-dragging {
+            position: fixed;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0.82;
+            background: var(--paper);
+            padding: 4px 8px;
+        }
+
+        .drag-hint {
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            color: var(--slate);
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            opacity: 0.7;
+        }
+
+        .joke-banner {
+            background: var(--navy);
+            color: var(--cream);
+            padding: 14px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .joke-banner strong {
+            color: #f0c27f;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .hero-copy {
+            color: var(--slate);
+            font-size: 14px;
+            line-height: 1.8;
+            max-width: 320px;
+            padding-bottom: 5px;
+        }
+
+        /* ── System strip ── */
+
+        .system-strip {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr 1fr 1fr;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .system-item {
+            padding: 22px 20px;
+            border-right: 1px solid var(--line);
+        }
+
+        .system-item:first-child { padding-left: 0; }
+        .system-item:last-child  { border-right: none; }
+
+        .system-label {
+            display: block;
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            color: var(--slate);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .system-value {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .live {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0.4); }
+            70%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);   }
+            100% { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0);   }
+        }
+
+        /* ── Workspace ── */
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 1.55fr 0.85fr;
+            gap: 35px;
+            padding-top: 42px;
+        }
+
+        /* ── Message list ── */
+
+        .section-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--navy);
+        }
+
+        .section-heading h2 {
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: -0.4px;
+        }
+
+        .section-count {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--slate);
+        }
+
+        .messages {
+            padding-top: 5px;
+        }
+
+        .message-row {
+            display: grid;
+            grid-template-columns: 58px 1fr auto;
+            align-items: center;
+            min-height: 86px;
+            border-bottom: 1px solid var(--line);
+            gap: 18px;
+            transition: background 0.2s ease, opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .message-row:hover {
+            background: rgba(234, 224, 207, 0.45);
+        }
+
+        .message-row.removing {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+
+        .message-number {
+            font-family: 'DM Mono', monospace;
+            color: var(--slate);
+            font-size: 10px;
+        }
+
+        .message-text {
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .delete-button {
+            background: transparent;
+            border: 1px solid var(--slate);
+            color: var(--indigo);
+            padding: 7px 12px;
+            border-radius: 5px;
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .delete-button:hover {
+            background: var(--navy);
+            border-color: var(--navy);
+            color: var(--cream);
+        }
+
+        .delete-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            padding: 70px 20px;
+            text-align: center;
+            color: var(--slate);
+            font-size: 13px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        /* ── Compose panel ── */
+
+        .compose {
+            background: var(--navy);
+            color: var(--cream);
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .compose::before {
+            content: "";
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border: 1px solid rgba(234, 224, 207, 0.12);
+            border-radius: 50%;
+            right: -80px;
+            top: -80px;
+        }
+
+        .compose::after {
+            content: "";
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            border: 1px solid rgba(234, 224, 207, 0.10);
+            border-radius: 50%;
+            right: -40px;
+            top: -40px;
+        }
+
+        .compose-label {
+            font-family: 'DM Mono', monospace;
+            color: var(--slate);
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .compose h2 {
+            font-size: 27px;
+            line-height: 1.1;
+            letter-spacing: -1px;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .compose p {
+            color: #b5bfd5;
+            font-size: 12px;
+            line-height: 1.7;
+            margin-bottom: 25px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .add-form {
+            position: relative;
+            z-index: 1;
+        }
+
+        .add-form input {
+            width: 100%;
+            height: 48px;
+            border: 1px solid rgba(234, 224, 207, 0.3);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--cream);
+            padding: 0 14px;
+            outline: none;
+            border-radius: 5px;
+            font-family: 'Manrope', sans-serif;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .add-form input::placeholder { color: #8995b0; }
+
+        .add-form input:focus { border-color: var(--cream); }
+
+        .add-button {
+            width: 100%;
+            height: 45px;
+            border: none;
+            background: var(--cream);
+            color: var(--navy);
+            border-radius: 5px;
+            font-family: 'Manrope', sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .add-button:hover    { background: #ffffff; }
+        .add-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Toast ── */
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--navy);
+            color: var(--cream);
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── Architecture strip ── */
+
+        .architecture {
+            margin-top: 42px;
+            padding: 28px 0;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .architecture-title {
+            font-family: 'DM Mono', monospace;
+            color: var(--slate);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 20px;
+        }
+
+        .flow {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .node {
+            border: 1px solid var(--line);
+            background: #ffffff;
+            padding: 9px 13px;
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--navy);
+        }
+
+        .arrow {
+            color: var(--slate);
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* ── Footer ── */
+
+        footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 22px;
+            color: var(--slate);
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.4px;
+        }
+
+        /* ── Responsive: tablet ── */
+
+        @media (max-width: 850px) {
+
+            .hero {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
+
+            .system-strip {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .system-item:nth-child(2) {
+                border-right: none;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Responsive: mobile ── */
+
+        @media (max-width: 550px) {
+
+            .topbar {
+                padding: 0 20px;
+            }
+
+            .environment {
+                display: none;
+            }
+
+            .page {
+                width: calc(100% - 30px);
+                padding-top: 40px;
+            }
+
+            .drag-word {
+                font-size: 3.3rem;
+                letter-spacing: -2.5px;
+            }
+
+            .system-strip {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .system-item {
+                padding: 17px 10px;
+            }
+
+            .system-item:first-child {
+                padding-left: 10px;
+            }
+
+            .message-row {
+                grid-template-columns: 40px 1fr;
+                padding: 15px 0;
+            }
+
+            .delete-button {
+                grid-column: 2;
+            }
+
+            footer {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+
+    </style>
 
 </head>
 
 <body>
 
-```
-<div class="container">
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
 
-    <h1>DevOps Message Board</h1>
 
-    <p class="subtitle">
-        Flask • Docker • MySQL • CI/CD Learning Journey
-    </p>
+    <!-- Top bar -->
+    <nav class="topbar">
 
-    <div class="messages">
+        <div class="brand">
+            <div class="brand-mark">&gt;_</div>
+            <span>DEVOPS / BOARD</span>
+        </div>
 
-        {% if messages %}
+        <div class="environment">
+            EC2 &middot; DOCKER &middot; BLUE / GREEN
+        </div>
 
-            {% for message in messages %}
-                <p>{{ message[0] }}</p>
-            {% endfor %}
+    </nav>
 
-        {% else %}
 
-            <div class="empty-state">
-                🚀 No messages yet. Add your first message.
+    <main class="page">
+
+
+        <!-- Hero -->
+        <section class="hero">
+
+            <div>
+
+                <div class="hero-kicker">
+                    Internal Application &middot; 001
+                </div>
+
+                <div class="hero-words">
+                    <span class="drag-word"        id="word-ship">Ship.</span>
+                    <span class="drag-word accent"  id="word-write">Write.</span>
+                    <span class="drag-word"         id="word-repeat">Repeat.</span>
+                </div>
+
+                <div class="drag-hint">
+                    &#8598; drag each word separately
+                </div>
+
+                <div class="joke-banner">
+                    <strong>&#128075; HEY {{ joke_friend|upper }}</strong>
+                    {{ joke }}
+                </div>
+
             </div>
 
-        {% endif %}
+            <div class="hero-copy">
+                A Flask app running inside Docker on AWS EC2 &mdash;
+                behind a Jenkins blue-green CI/CD pipeline.
+                Real infrastructure. Real deployments. Broken many times.
+            </div>
 
-    </div>
+        </section>
 
-    <form action="/add" method="POST">
 
-        <input
-            type="text"
-            name="message"
-            placeholder="Write a message..."
-            required
-        >
+        <!-- System strip -->
+        <section class="system-strip">
 
-        <button type="submit">
-            Add Message
-        </button>
+            <div class="system-item">
+                <span class="system-label">Runtime</span>
+                <span class="system-value">Flask / Gunicorn</span>
+            </div>
 
-    </form>
+            <div class="system-item">
+                <span class="system-label">Database</span>
+                <span class="system-value">MySQL</span>
+            </div>
 
-    <div class="footer">
-        Built while learning real-world DevOps engineering
-    </div>
+            <div class="system-item">
+                <span class="system-label">Infrastructure</span>
+                <span class="system-value">AWS EC2</span>
+            </div>
 
-</div>
-```
+            <div class="system-item">
+                <span class="system-label">Live Now</span>
+                <span class="system-value live">
+                    <span class="live-dot"></span>
+                    <span id="live-count">{{ live_count }}</span>&nbsp;online
+                </span>
+            </div>
+
+        </section>
+
+
+        <!-- Workspace -->
+        <section class="workspace">
+
+
+            <!-- Message list -->
+            <div>
+
+                <div class="section-heading">
+                    <h2>Recent Messages</h2>
+                    <span class="section-count" id="msg-count">{{ messages|length }} RECORDS</span>
+                </div>
+
+                <div class="messages" id="messages-list">
+
+                    {% if messages %}
+
+                        {% for i, message in enumerate(messages) %}
+
+                        <div class="message-row" data-id="{{ message[0] }}">
+
+                            <div class="message-number">
+                                #{{ i + 1 }}
+                            </div>
+
+                            <div class="message-text">
+                                {{ message[1] }}
+                            </div>
+
+                            <button
+                                class="delete-button"
+                                onclick="deleteMessage({{ message[0] }}, this)"
+                            >
+                                DELETE
+                            </button>
+
+                        </div>
+
+                        {% endfor %}
+
+                    {% else %}
+
+                        <div class="empty-state">
+                            No records yet.<br>
+                            Add the first message from the panel.
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+
+            <!-- Compose panel -->
+            <aside class="compose">
+
+                <div class="compose-label">New record</div>
+
+                <h2>Leave a<br>message.</h2>
+
+                <p>
+                    Submit data through Flask and persist it
+                    inside the MySQL service.
+                </p>
+
+                <div class="add-form">
+
+                    <input
+                        type="text"
+                        id="msg-input"
+                        placeholder="Type something..."
+                        autocomplete="off"
+                    >
+
+                    <button
+                        class="add-button"
+                        id="add-btn"
+                        onclick="addMessage()"
+                    >
+                        ADD TO DATABASE
+                    </button>
+
+                </div>
+
+            </aside>
+
+        </section>
+
+
+        <!-- Architecture -->
+        <section class="architecture">
+
+            <div class="architecture-title">Request path</div>
+
+            <div class="flow">
+                <div class="node">BROWSER</div>
+                <div class="arrow">&rarr;</div>
+                <div class="node">AWS ALB</div>
+                <div class="arrow">&rarr;</div>
+                <div class="node">NGINX</div>
+                <div class="arrow">&rarr;</div>
+                <div class="node">FLASK</div>
+                <div class="arrow">&rarr;</div>
+                <div class="node">MYSQL</div>
+            </div>
+
+        </section>
+
+
+        <!-- Footer -->
+        <footer>
+            <span>DEVOPS-FLASK-PROJECT</span>
+            <span>FLASK &middot; DOCKER &middot; JENKINS &middot; AWS</span>
+        </footer>
+
+
+    </main>
+
+
+    <script>
+
+        /* ── Toast ── */
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2500);
+        }
+
+
+        /* ── Helpers ── */
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+
+        /* ── Render messages ── */
+
+        function renderMessages(messages) {
+
+            const list = document.getElementById('messages-list');
+            document.getElementById('msg-count').textContent = messages.length + ' RECORDS';
+
+            if (messages.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        No records yet.<br>
+                        Add the first message from the panel.
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = messages.map((m, i) => `
+                <div class="message-row" data-id="${m.id}">
+                    <div class="message-number">#${i + 1}</div>
+                    <div class="message-text">${escapeHtml(m.text)}</div>
+                    <button
+                        class="delete-button"
+                        onclick="deleteMessage(${m.id}, this)"
+                    >DELETE</button>
+                </div>
+            `).join('');
+        }
+
+
+        /* ── Add message ── */
+
+        async function addMessage() {
+
+            const input = document.getElementById('msg-input');
+            const btn   = document.getElementById('add-btn');
+            const text  = input.value.trim();
+
+            if (!text) {
+                showToast('type something first');
+                return;
+            }
+
+            btn.disabled    = true;
+            btn.textContent = 'SAVING...';
+
+            try {
+                const res = await fetch('/add', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ message: text }),
+                });
+
+                const messages = await res.json();
+                renderMessages(messages);
+                input.value = '';
+                showToast('message saved \u2713');
+
+            } catch (e) {
+                showToast('error saving message');
+            }
+
+            btn.disabled    = false;
+            btn.textContent = 'ADD TO DATABASE';
+        }
+
+
+        /* ── Delete message ── */
+
+        async function deleteMessage(id, btn) {
+
+            btn.disabled = true;
+
+            const row = btn.closest('.message-row');
+            row.classList.add('removing');
+
+            await new Promise(r => setTimeout(r, 300));
+
+            try {
+                const res      = await fetch('/delete/' + id, { method: 'POST' });
+                const messages = await res.json();
+                renderMessages(messages);
+                showToast('deleted \u2713');
+
+            } catch (e) {
+                row.classList.remove('removing');
+                btn.disabled = false;
+                showToast('error deleting');
+            }
+        }
+
+
+        /* ── Enter key shortcut ── */
+
+        document.getElementById('msg-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') addMessage();
+        });
+
+
+        /* ── Live user count (polls every 30s) ── */
+
+        async function updateLiveCount() {
+            try {
+                const res  = await fetch('/api/live-count');
+                const data = await res.json();
+                document.getElementById('live-count').textContent = data.count;
+            } catch (e) {}
+        }
+
+        setInterval(updateLiveCount, 30000);
+
+
+        /* ── Draggable words ── */
+
+        function makeDraggable(el) {
+
+            let ox = 0, oy = 0, dragging = false;
+
+            el.addEventListener('mousedown', e => {
+
+                const rect = el.getBoundingClientRect();
+                ox = e.clientX - rect.left;
+                oy = e.clientY - rect.top;
+
+                el.classList.add('is-dragging');
+                el.style.left  = rect.left  + 'px';
+                el.style.top   = rect.top   + 'px';
+                el.style.width = rect.width + 'px';
+
+                dragging = true;
+                document.body.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', e => {
+                if (!dragging) return;
+                el.style.left = (e.clientX - ox) + 'px';
+                el.style.top  = (e.clientY - oy) + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                el.classList.remove('is-dragging');
+                document.body.style.cursor = '';
+                showToast('dropped \u2193');
+            });
+
+            /* Touch support */
+
+            el.addEventListener('touchstart', e => {
+                const touch = e.touches[0];
+                const rect  = el.getBoundingClientRect();
+                ox = touch.clientX - rect.left;
+                oy = touch.clientY - rect.top;
+                el.classList.add('is-dragging');
+                el.style.left  = rect.left  + 'px';
+                el.style.top   = rect.top   + 'px';
+                el.style.width = rect.width + 'px';
+            }, { passive: true });
+
+            el.addEventListener('touchmove', e => {
+                const touch = e.touches[0];
+                el.style.left = (touch.clientX - ox) + 'px';
+                el.style.top  = (touch.clientY - oy) + 'px';
+                e.preventDefault();
+            }, { passive: false });
+
+            el.addEventListener('touchend', () => {
+                el.classList.remove('is-dragging');
+                showToast('dropped \u2193');
+            });
+        }
+
+        makeDraggable(document.getElementById('word-ship'));
+        makeDraggable(document.getElementById('word-write'));
+        makeDraggable(document.getElementById('word-repeat'));
+
+    </script>
 
 </body>
-</html>
 
+</html>
