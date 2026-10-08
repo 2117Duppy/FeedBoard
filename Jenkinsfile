@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         COMPOSE_PROJECT = 'devops-flask-pipeline'
-        EC2_HOST = '15.252.73.237'
+        EC2_HOST = '43.204.230.141'
         EC2_PROJECT = '/home/ubuntu/devops-flask-project'
         AWS_REGION = 'ap-south-1'
         ALB_NAME = 'devops-flask-alb'
