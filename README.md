@@ -1,7 +1,7 @@
 # FeedBoard
 
-> **Production-Grade Blue/Green Deployment Reference Architecture**  
-> A zero-downtime, health-gated Flask message board deployed behind Nginx and an AWS Application Load Balancer (ALB), automated by a 13-stage Jenkins CI/CD pipeline.
+> **Blue/Green Deployment Reference**
+> A Flask message board demonstrating health-gated deployments with Docker Compose, Nginx, an AWS Application Load Balancer (ALB), and a 13-stage Jenkins pipeline.
 
 ---
 
@@ -14,7 +14,7 @@
    - [Layer 2: Reverse Proxy & Dynamic Upstream Switching (Nginx)](#layer-2-reverse-proxy--dynamic-upstream-switching-nginx)
    - [Layer 3: Application Runtime & Containers (Flask / Gunicorn)](#layer-3-application-runtime--containers-flask--gunicorn)
    - [Layer 4: Data Persistence & Storage (MySQL 8.0)](#layer-4-data-persistence--storage-mysql-80)
-   - [Layer 5: CI/CD Control Plane (GitHub Actions & Jenkins)](#layer-5-cicd-control-plane-github-actions--jenkins)
+    - [Layer 5: Deployment Control Plane (Jenkins)](#layer-5-deployment-control-plane-jenkins)
 4. [Dual-Layer Routing Mechanics (ALB + Nginx)](#dual-layer-routing-mechanics-alb--nginx)
 5. [End-to-End Request Lifecycle](#end-to-end-request-lifecycle)
 6. [Blue/Green Deployment Strategy & Invariants](#bluegreen-deployment-strategy--invariants)
@@ -22,24 +22,25 @@
 8. [Jenkins 13-Stage Deployment Pipeline](#jenkins-13-stage-deployment-pipeline)
 9. [Application Specifications & API](#application-specifications--api)
 10. [Database Architecture & Schema Safety](#database-architecture--schema-safety)
-11. [Failure Modes & Automated Rollback Matrix](#failure-modes--automated-rollback-matrix)
+11. [Failure Modes & Recovery Behavior](#failure-modes--recovery-behavior)
 12. [Local Development & Manual Testing](#local-development--manual-testing)
 13. [Production Hardening & Architectural Trade-offs](#production-hardening--architectural-trade-offs)
-14. [Repository Structure](#repository-structure)
+14. [Known Limitations](#known-limitations)
+15. [Repository Structure](#repository-structure)
 
 ---
 
 ## Architecture Overview
 
-FeedBoard is built to demonstrate how zero-downtime deployments work across cloud edge infrastructure, host reverse proxies, and container runtimes.
+FeedBoard demonstrates blue/green application deployment. Docker Compose runs both application colors, MySQL, and Nginx; Jenkins coordinates deployment and AWS ALB listener changes while Nginx handles the active/inactive app switch.
 
-### Core Guarantees
+### Deployment Characteristics
 
-* **Zero Dropped Connections:** Workers drain existing traffic gracefully while new workers take over.
-* **Health-Gated Switching:** Traffic is never routed to a newly built container until an isolated HTTP probe passes.
-* **Single Public Host Port:** Only Nginx binds to host port `80:80`. All internal services (`flask-blue`, `flask-green`, `mysql`) run on a private Docker bridge network (`devops-net`).
-* **Automated Rollback:** If config validation or post-switch verification fails, Nginx rolls back immediately to the previous upstream.
-* **Persistent Shared State:** Database data is decoupled into an external Docker named volume (`mysql-data`) mounted into MySQL, surviving all application container lifecycles.
+* **Health-gated application switch:** Jenkins probes the idle application container before changing Nginx's upstream.
+* **Single published application entry point:** Nginx publishes host port `80`; the application and MySQL containers use the private Compose network.
+* **Nginx rollback:** The Nginx cutover stage attempts to restore the previous upstream if its switch or verification fails.
+* **Persistent database volume:** MySQL stores data in the Compose-managed named volume `mysql-data`, which is retained when application containers are recreated.
+* **Shared database:** Blue and green use the same persistent MySQL database.
 
 ---
 
@@ -54,7 +55,7 @@ flowchart TB
     subgraph AWS["AWS Cloud (ap-south-1)"]
         subgraph EDGE["Edge Routing Layer"]
             ALB["Application Load Balancer: devops-flask-alb<br/>Listener :80 &rarr; default action: forward"]
-            subgraph TGS["Target Groups (Exactly One Live)"]
+            subgraph TGS["Target Groups (Listener selects one)"]
                 TGB["devops-flask-tg<br/>(BLUE Target Group)"]
                 TGG["devops-flask-green-tg<br/>(GREEN Target Group)"]
             end
@@ -62,13 +63,13 @@ flowchart TB
             ALB -.->|"idle"| TGG
         end
 
-        subgraph EC2["EC2 Instance (15.252.73.237 / 43.204.230.141)<br/>Deploy Directory: /home/ubuntu/devops-flask-project"]
+        subgraph EC2["EC2 Deployment Environment<br/>Deploy Directory: /home/ubuntu/devops-flask-project"]
             subgraph NET["Docker Network: devops-net (bridge)<br/>Only Nginx publishes a host port"]
                 NGINX["Nginx Reverse Proxy<br/>Published Port: 80:80<br/>proxy_pass http://flask-&lt;color&gt;:5000<br/>Forwarded Headers: Host, X-Real-IP, X-Forwarded-For, X-Forwarded-Proto"]
 
                 subgraph COLORS["Blue / Green Services (One Active, One Idle)"]
                     BLUE["flask-blue :5000<br/>Gunicorn &times; 3 workers<br/>python:3.9-slim<br/>template: index.html"]
-                    GREEN["flask-green :5000<br/>Gunicorn &times; 3 workers<br/>python:3.9-slim<br/>template: index-green.html"]
+                    GREEN["flask-green :5000<br/>Gunicorn &times; 3 workers<br/>python:3.9-slim<br/>template: index.html"]
                 end
 
                 MYSQL["MySQL :3306<br/>mysql:8.0 + init.sql<br/>Healthcheck: mysqladmin ping (2s &times; 5)"]
@@ -86,21 +87,19 @@ flowchart TB
         TGG -.->|"port 80"| NGINX
     end
 
-    subgraph CICD["CI/CD Control Plane"]
-        GHA["GitHub Actions CI<br/>Test & PyCompile on push"]
-        subgraph JENKINS["Jenkins &mdash; 13-Stage CD Pipeline"]
+    subgraph CICD["Deployment Control Plane"]
+        subgraph JENKINS["Jenkins &mdash; 13-Stage Pipeline"]
             S1["Stages 1-2: SSH & AWS Credential Verification<br/>(ec2-deploy-key, aws-jenkins-deployer)"]
             S3["Stage 3: Detect Active Target Group via describe-listeners"]
-            S4["Stage 4: Switch ALB Listener & Verify Target Group"]
-            S6["Stages 6-7: Build Idle Color & Health Probe :5000"]
-            S8["Stage 8: Nginx Dynamic Cutover<br/>sed proxy_pass &rarr; docker cp &rarr; nginx -t &rarr;<br/>nginx -s reload &rarr; nginx -T verify &rarr; try/catch rollback"]
-            S9["Stages 9-13: Stop Old Color &rarr; Archive Artifacts &rarr; Final curl :80 probe"]
+            S4["Stages 4-6: Calculate Version, Deploy Idle Color, Health Probe"]
+            S7["Stage 7: Nginx Cutover & Verify<br/>nginx -t &rarr; reload &rarr; nginx -T"]
+            S8["Stage 8: Switch ALB Listener & Verify Target Group"]
+            S9["Stages 9-13: Cleanup, Archive, Wait, Final Probe"]
 
-            S1 --> S3 --> S4 --> S6 --> S8 --> S9
+            S1 --> S3 --> S4 --> S7 --> S8 --> S9
         end
         JENKINS -->|"SSH with ec2-deploy-key<br/>remote docker commands"| EC2
         JENKINS -->|"AWS CLI elbv2 commands"| ALB
-        GHA -.->|"triggers"| JENKINS
     end
 
     USER -->|"HTTP :80"| ALB
@@ -123,8 +122,8 @@ flowchart TB
 * **Target Groups:** 
   * `devops-flask-tg` (Blue role)
   * `devops-flask-green-tg` (Green role)
-* Both target groups register the EC2 host on port 80 and continuously monitor health.
-* The ALB allows switching default listener rules via AWS ELBv2 APIs without modifying DNS records or dropping connections.
+* In the deployed setup, both target groups register an EC2 endpoint on port 80; the listener selects which target group receives traffic.
+* Jenkins changes and verifies the default listener action through AWS ELBv2 APIs. The Nginx upstream selects the application color.
 
 ### Layer 2: Reverse Proxy & Dynamic Upstream Switching (Nginx)
 * **Role:** Host-level ingress and reverse proxy deployed via Docker.
@@ -135,9 +134,7 @@ flowchart TB
 ### Layer 3: Application Runtime & Containers (Flask / Gunicorn)
 * **Base Image:** `python:3.9-slim`.
 * **Application Server:** **Gunicorn** with 3 worker processes (`gunicorn --bind 0.0.0.0:5000 --workers 3 app:app`).
-* **Visual Verification:**
-  * `flask-blue`: Serves default `templates/index.html`.
-  * `flask-green`: Injected with `APP_TEMPLATE=index-green.html` via `docker-compose.yml`, rendering a distinct visual styling so deployments can be verified by sight.
+* **Same application behavior:** Both colors run the same image and render `templates/index.html`. The `APP_TEMPLATE` variable in Compose is not read by `app.py`.
 * **Port:** Container-internal port `5000` (not published to the host).
 
 ### Layer 4: Data Persistence & Storage (MySQL 8.0)
@@ -145,9 +142,8 @@ flowchart TB
 * **Health Check:** Container-native `mysqladmin ping` probe ensures MySQL is fully accepting connections before Flask containers start.
 * **Data Volume:** Docker named volume `mysql-data` maps to `/var/lib/mysql`, ensuring database records persist across reboots, builds, and blue/green rotations.
 
-### Layer 5: CI/CD Control Plane (GitHub Actions & Jenkins)
-* **GitHub Actions (`.github/workflows/ci.yml`):** Runs on push to ensure Python syntax validity via `py_compile` and builds candidate container images.
-* **Jenkins Server:** Executes the 13-stage deployment pipeline using credential stores:
+### Layer 5: Deployment Control Plane (Jenkins)
+* **Jenkins:** Executes the 13-stage deployment pipeline using its credential store:
   * `ec2-deploy-key`: SSH private key for remote EC2 orchestration.
   * `aws-jenkins-deployer`: IAM credentials with scoped permissions for AWS ELBv2.
 
@@ -179,8 +175,8 @@ Client
    * Mirrors enterprise multi-instance and multi-AZ architectures where the ALB routes traffic to whole environment clusters.
    * Tracks environment state at the cloud control plane level (`describe-listeners`).
 2. **Inner Host Layer (Nginx Reverse Proxy):**
-   * Solves the single-host container port dilemma: Docker cannot bind two containers to host port 80 at the same time.
-   * Nginx performs the microsecond-level atomic switch (`nginx -s reload`) without dropping in-flight TCP connections.
+    * Provides one published port-80 entry point and forwards requests to the configured application service.
+    * Nginx reloads its configuration gracefully. Existing workers can finish active requests, but this is not an absolute guarantee of zero dropped connections.
    * Injects standardized proxy headers (`X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`) so backend applications have full visibility of true client IPs.
 
 ---
@@ -204,7 +200,7 @@ sequenceDiagram
     APP->>APP: track_session() &rarr; generate/refresh session UUID
     APP->>DB: SELECT id, name FROM Users ORDER BY id
     DB-->>APP: Query result set
-    APP->>APP: render_template(APP_TEMPLATE)
+    APP->>APP: render_template("index.html")
     APP-->>NGINX: HTTP 200 OK + HTML payload
     NGINX-->>ALB: HTTP 200 OK
     ALB-->>Client: HTTP 200 OK (Rendered UI)
@@ -288,23 +284,23 @@ flowchart TD
 
 ## Jenkins 13-Stage Deployment Pipeline
 
-The continuous deployment pipeline defined in [`Jenkinsfile`](file:///Users/prakharsrivastav/Documents/FeedBoard/Jenkinsfile) consists of 13 automated stages:
+The deployment pipeline defined in [Jenkinsfile](Jenkinsfile) consists of 13 stages. The idle application is deployed and health-checked before Nginx and the ALB are switched:
 
 | Stage # | Stage Name | Purpose & Commands | Failure Action |
 | :---: | :--- | :--- | :--- |
 | **1** | **Test EC2 SSH Access** | Validates SSH connectivity to EC2 (`whoami`, `hostname`, `docker compose ps`). Uses credentials `ec2-deploy-key`. | Aborts build immediately if SSH unreachable. |
 | **2** | **Test AWS Access** | Executes `aws sts get-caller-identity` and lists target groups with `aws elbv2 describe-target-groups`. | Aborts build if AWS credentials invalid. |
 | **3** | **Detect ALB Active Environment** | Queries `describe-listeners` to determine whether ALB is pointing to `devops-flask-tg` or `devops-flask-green-tg`. | Fails if unknown target group returned. |
-| **4** | **Switch ALB Traffic** | Executes `aws elbv2 modify-listener` to point listener ARN to the target group for the incoming color, then verifies with `describe-listeners`. | Fails if target group ARN does not match expected target. |
-| **5** | **Calculate Build Version** | Extracts Git commit hash (`git rev-parse --short HEAD`) for deployment tracking. | Fails if Git repository metadata missing. |
-| **6** | **Deploy Application** | Discovers active EC2 color (`nginx -T`), ensures MySQL is running, then executes `docker compose build <idle_color>` and `docker compose up -d <idle_color>`. | Fails if Docker image build or container start errors. |
-| **7** | **Health Check New Environment** | Probes the newly started container over internal bridge network using Python `urllib.request.urlopen('http://localhost:5000')`. | Fails build if HTTP probe returns non-200. Old color continues serving. |
-| **8** | **Switch Traffic and Verify** | Performs `sed` replacement in `nginx/nginx.conf`, copies into container, runs `nginx -t`, reloads `nginx -s reload`, and verifies `nginx -T`. | **Automated Rollback:** Catches error, reverses `sed`, copies config, and reloads old color. |
-| **9** | **Cleanup Old Environment** | Runs `docker compose stop <old_color>` to shut down the retired container once new traffic is verified. | Logs warning; does not bring down new service. |
-| **10** | **Create Build Artifact** | Generates `build-info.txt` containing `BUILD_NUMBER` and `GIT_COMMIT`. | Non-fatal artifact tracking step. |
-| **11** | **Archive Artifact** | Stores `build-info.txt` in Jenkins build history via `archiveArtifacts`. | Non-fatal step. |
-| **12** | **Wait for Services** | Executes `sleep 10` to allow Gunicorn worker processes to reach full operational capacity. | Non-fatal delay. |
-| **13** | **Final Health Check** | Runs end-to-end integration probe via `curl --fail --silent http://localhost/` through Nginx. | Fails build if public endpoint fails. |
+| **4** | **Calculate Build Version** | Extracts Git commit hash (`git rev-parse --short HEAD`) for deployment tracking. | Fails if Git repository metadata is missing. |
+| **5** | **Deploy Application** | Discovers the Nginx-active color, ensures MySQL is running, then builds and starts the idle color. | Fails if image build or container startup fails. |
+| **6** | **Health Check New Environment** | Probes the idle container over the internal bridge network using Python `urllib`. | Fails before traffic changes; the current Nginx upstream remains active. |
+| **7** | **Switch Nginx Traffic and Verify** | Updates `nginx.conf`, validates it with `nginx -t`, reloads Nginx, and verifies the live upstream. | Attempts to restore the previous Nginx upstream if cutover verification fails. |
+| **8** | **Switch ALB Traffic** | Changes the listener default action to the target group for the new color and verifies it with `describe-listeners`. | Fails if the target group ARN does not match; this stage does not roll back the completed Nginx cutover. |
+| **9** | **Cleanup Old Environment** | Stops the old color after both traffic switches succeed. | A cleanup failure fails this stage; the new color is already active. |
+| **10** | **Create Build Artifact** | Generates `build-info.txt` containing `BUILD_NUMBER` and `GIT_COMMIT`. | Artifact tracking step. |
+| **11** | **Archive Artifact** | Stores `build-info.txt` in Jenkins build history via `archiveArtifacts`. | Fails if Jenkins cannot archive the artifact. |
+| **12** | **Wait for Services** | Executes `sleep 10` before the final endpoint check. | Fixed delay; not a health check by itself. |
+| **13** | **Final Health Check** | Runs `curl --fail --silent http://localhost/` through Nginx on the EC2 host. | Fails the build if the endpoint check fails. |
 
 ---
 
@@ -316,22 +312,12 @@ The application is written in Python using Flask and PyMySQL, served by Gunicorn
 
 | Method | Endpoint | Description | Request / Response Format |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/` | Renders the message board UI with live session count and random joke. | Returns HTML (`index.html` or `index-green.html`). |
+| `GET` | `/` | Renders the message board UI with live session count and random joke. | Returns HTML from `templates/index.html`. |
 | `GET` | `/api/live-count` | Returns active visitor count based on sliding 300s TTL. | `{"count": 3}` (JSON) |
 | `POST` | `/add` | Inserts a new user/message into the database. | Body: `{"message": "Hello"}` &rarr; Returns updated message array. |
 | `POST` | `/delete/<id>` | Deletes an existing record by primary key ID. | Returns updated message array. |
 
-### Visual Template Selection
-
-The application checks the `APP_TEMPLATE` environment variable to select the active template:
-
-```python
-template_name = os.getenv("APP_TEMPLATE", "index.html")
-return render_template(template_name, ...)
-```
-
-* `flask-blue`: Unset (defaults to `index.html`).
-* `flask-green`: Set to `index-green.html` in `docker-compose.yml`.
+Both application colors currently render `templates/index.html`. Although Compose sets `APP_TEMPLATE` for `flask-green`, `app.py` does not read that variable, so the page appearance is not an environment-color indicator.
 
 ---
 
@@ -342,7 +328,7 @@ The database layer runs on official MySQL 8.0, initialized via `mysql/Dockerfile
 ```sql
 CREATE TABLE IF NOT EXISTS Users (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL
+    name VARCHAR(100)
 );
 
 INSERT INTO Users (name) VALUES ('Prakhar'), ('Bhavya'), ('Red');
@@ -358,24 +344,25 @@ Because both Blue and Green containers connect to the **same underlying MySQL in
 
 ---
 
-## Failure Modes & Automated Rollback Matrix
+## Failure Modes & Recovery Behavior
 
 ```mermaid
 flowchart TD
     E1["Failure Scenario"]
     
-    E1 -->|"New Container Fails to Start"| F1["Stage 7 probe fails &rarr; Pipeline aborts &rarr; Nginx untouched &rarr; Blue serves traffic"]
+    E1 -->|"New Container Fails to Start"| F1["Stage 6 probe fails &rarr; Pipeline aborts &rarr; Nginx untouched &rarr; Current color keeps serving"]
     E1 -->|"Nginx Syntax Invalid"| F2["nginx -t fails &rarr; Reload never called &rarr; Active workers keep serving"]
-    E1 -->|"Upstream Verify Mismatch"| F3["Stage 8 catch block triggers &rarr; sed reverted &rarr; Nginx reloaded back to Blue"]
+    E1 -->|"Upstream Verify Mismatch"| F3["Stage 7 catch block attempts rollback to the previous Nginx upstream"]
     E1 -->|"MySQL Unhealthy"| F4["Docker Compose condition: service_healthy blocks Flask container startup"]
-    E1 -->|"ALB Switch Fails"| F5["describe-listeners assertion mismatch &rarr; Build fails fast"]
+    E1 -->|"ALB Switch Fails"| F5["Stage 8 verification fails &rarr; Build fails; Nginx stays on the new color"]
 ```
 
 | Failure Event | Detection Point | Automated Recovery Action | Impact on End User |
 | :--- | :--- | :--- | :--- |
-| **New Container Crash on Boot** | Stage 7: Python `urllib` probe fails | Jenkins aborts execution; Stage 8 (cutover) never executes. | **Zero Impact:** Existing container remains fully active. |
-| **Corrupted `nginx.conf`** | Stage 8: `nginx -t` validation fails | Process exits before reload signal; active Nginx workers keep old config. | **Zero Impact:** Traffic continues flowing to old container. |
-| **Post-Cutover Mismatch** | Stage 8: `nginx -T` grep check fails | Jenkins `catch` block triggers immediate rollback (reverse `sed` + reload). | **Sub-second recovery:** Minimal or zero dropped requests. |
+| **New Container Crash on Boot** | Stage 6: Python `urllib` probe fails | Jenkins aborts before Nginx or ALB traffic switches. | Current color remains active. |
+| **Corrupted `nginx.conf`** | Stage 7: `nginx -t` validation fails | Jenkins catch block attempts to restore the previous config; reload is not performed with invalid config. | Existing Nginx workers continue with their loaded configuration if rollback succeeds. |
+| **Post-Cutover Mismatch** | Stage 7: `nginx -T` verification fails | Jenkins catch block attempts rollback to the previous upstream. | Recovery depends on the rollback commands succeeding. |
+| **ALB Switch Fails** | Stage 8: listener verification fails | Jenkins fails the build; the Nginx cutover is not automatically reverted. | Nginx continues routing to the new color; both ALB target groups forward to the Nginx endpoint. |
 | **MySQL Unavailable** | Docker health check (`mysqladmin ping`) | `depends_on: condition: service_healthy` prevents Flask start until DB is ready. | Prevents broken containers from booting. |
 
 ---
@@ -383,20 +370,15 @@ flowchart TD
 ## Local Development & Manual Testing
 
 ### 1. Prerequisites & Environment Setup
-Clone the repository and copy the environment configuration:
+Clone the repository and create the local environment file, then populate it from your approved secret source:
 
 ```bash
 git clone https://github.com/2117Duppy/FeedBoard.git
 cd FeedBoard
-cp .env.example .env
+touch .env
 ```
 
-Ensure `.env` contains:
-```env
-MYSQL_ROOT_PASSWORD=your_root_password
-MYSQL_DATABASE=feedboard_db
-MYSQL_USER=feedboard_user
-```
+Compose requires `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, and `MYSQL_USER`. Keep real values in the ignored `.env` file and do not commit them. `MYSQL_USER` must identify a MySQL account available to the app; Compose currently passes only the root password and database name to the MySQL service.
 
 ### 2. Build and Start Services
 Launch all four services (`mysql`, `flask-blue`, `flask-green`, `nginx`):
@@ -412,27 +394,17 @@ docker compose ps
 
 Visit the application locally at: **`http://localhost`** (routes by default to `flask-blue`).
 
-### 3. Simulate a Manual Zero-Downtime Cutover
-To test the atomic cutover mechanism on your local workstation:
+### 3. Simulate a Manual Nginx Cutover
+Edit `nginx/nginx.conf` and change the `proxy_pass` upstream from `flask-blue:5000` to `flask-green:5000`, then copy and reload the configuration:
 
 ```bash
-# 1. Switch upstream in nginx.conf from blue to green
-sed -i '' 's/flask-blue:5000/flask-green:5000/' nginx/nginx.conf
-
-# 2. Copy modified configuration into running Nginx container
-docker cp nginx/nginx.conf feedboard-nginx-1:/etc/nginx/nginx.conf
-
-# 3. Validate configuration
+docker compose cp ./nginx/nginx.conf nginx:/etc/nginx/nginx.conf
 docker compose exec nginx nginx -t
-
-# 4. Gracefully reload Nginx workers
 docker compose exec nginx nginx -s reload
-
-# 5. Verify live configuration
 docker compose exec nginx nginx -T | grep proxy_pass
 ```
 
-Refresh **`http://localhost`** in your browser. The screen will instantly switch to the green template (`index-green.html`) with zero dropped HTTP requests and preserved database records.
+The live configuration output should show `flask-green:5000`. Both colors currently render the same template, so use the Nginx upstream configuration to confirm the active color. MySQL data remains in the Compose-managed named volume.
 
 ---
 
@@ -442,11 +414,21 @@ Refresh **`http://localhost`** in your browser. The screen will instantly switch
 | :--- | :--- | :--- |
 | **Session Tracking** | In-process Python dictionary (`active_sessions`) | Deploy a shared **Redis** or **AWS ElastiCache** instance so session counts survive cutovers across containers. |
 | **Database Architecture** | Single-container MySQL on EC2 with Docker volume | Migrate to **Amazon RDS Multi-AZ (MySQL)** for automated backups, read replicas, and failover capabilities. |
-| **Host High Availability** | Single EC2 host running both Blue and Green | Deploy Blue and Green as separate Auto Scaling Groups (ASGs) behind ALB Target Groups across multiple Availability Zones. |
+| **Deployment Availability** | No automated host failover | Deploy Blue and Green as separate Auto Scaling Groups (ASGs) behind ALB Target Groups across multiple Availability Zones. |
 | **Configuration Delivery** | Host-level `sed` on `nginx.conf` | Use environment template generators (e.g. `envsubst` or Consul Template) or service meshes (e.g. Envoy, AWS ECS Service Connect). |
 | **Host Access Security** | SSH via private key (`ec2-deploy-key`) | Use **AWS Systems Manager (SSM) Session Manager** to eliminate the need for open SSH ports (port 22) and static keys. |
 
 ---
+
+## Known Limitations
+
+* **Host availability:** The deployment does not provide automated host-level failover.
+* **ALB scope:** Both target groups forward to the Nginx endpoint. The ALB switch does not select separate color fleets; Nginx selects the application color.
+* **Partial rollback boundary:** If the ALB switch fails after the Nginx cutover, Jenkins reports failure but does not automatically restore the previous Nginx upstream.
+* **In-process sessions:** `active_sessions` is a Python dictionary local to each Gunicorn worker, so counts are not shared across workers or application colors.
+* **Fixed wait:** The pipeline uses a fixed `sleep 10` before its final health check rather than polling with a timeout.
+* **Build tracking:** Jenkins records the Git revision in its build output/artifact, but the application image is not tagged with that revision.
+* **SSH host verification:** Jenkins uses `StrictHostKeyChecking=no`; production deployments should verify and pin the host key or use SSM.
 
 ## Repository Structure
 
@@ -454,7 +436,7 @@ Refresh **`http://localhost`** in your browser. The screen will instantly switch
 .
 ├── .github/
 │   └── workflows/
-│       └── ci.yml               # GitHub Actions CI pipeline (lint, test, build)
+│       └── ci.yml               # Legacy GitHub Actions workflow; not the deployment pipeline
 ├── mysql/
 │   └── Dockerfile               # MySQL 8.0 custom Dockerfile with init scripts
 ├── nginx/
@@ -462,8 +444,8 @@ Refresh **`http://localhost`** in your browser. The screen will instantly switch
 ├── sql/
 │   └── init.sql                 # Database table definition and seed records
 ├── templates/
-│   ├── index.html               # Blue environment frontend template
-│   └── index-green.html         # Green environment frontend template
+│   ├── index.html               # Template rendered by both application colors
+│   └── index-green.html         # Alternate template, currently unused by app.py
 ├── app.py                       # Flask web application, session tracking, & SQL queries
 ├── docker-compose.yml           # Multi-container orchestration (MySQL, Blue, Green, Nginx)
 ├── Dockerfile                   # Application container definition (Python 3.9 + Gunicorn)
